@@ -49,6 +49,59 @@ body.lock-scroll {
   overflow-x: hidden;
 }
 
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  body.fancy-cursor-enabled,
+  body.fancy-cursor-enabled a,
+  body.fancy-cursor-enabled button,
+  body.fancy-cursor-enabled input,
+  body.fancy-cursor-enabled textarea,
+  body.fancy-cursor-enabled select,
+  body.fancy-cursor-enabled [role="button"] {
+    cursor: none;
+  }
+
+  .custom-cursor-trail {
+    position: fixed;
+    inset: 0;
+    z-index: 9998;
+    pointer-events: none;
+  }
+
+  .custom-cursor-dot {
+    position: fixed;
+    z-index: 9999;
+    top: 0;
+    left: 0;
+    width: 22px;
+    height: 22px;
+    border: 2px solid #2c8d58;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 2px 12px rgba(9, 28, 22, 0.22);
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, -50%) scale(0.7);
+    transition: opacity 140ms ease, transform 140ms ease;
+  }
+
+  .custom-cursor-dot::after {
+    position: absolute;
+    inset: 5px;
+    border-radius: 50%;
+    background: #2c8d58;
+    content: "";
+  }
+
+  .custom-cursor-dot.is-visible {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  .custom-cursor-dot.is-pressed {
+    transform: translate(-50%, -50%) scale(0.82);
+  }
+}
+
 .reveal {
   opacity: 0;
   transform: translate3d(0, 24px, 0);

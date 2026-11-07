@@ -2,6 +2,100 @@ document.addEventListener("DOMContentLoaded", function () {
   const menuToggle = document.querySelector(".menu-toggle");
   const mainNav = document.querySelector(".main-nav");
   const serviceSlider = document.querySelector(".service-slider");
+  const cursorMedia = window.matchMedia("(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)");
+
+  if (cursorMedia.matches) {
+    const trailCanvas = document.createElement("canvas");
+    const trailContext = trailCanvas.getContext("2d");
+    if (trailContext) {
+      const cursorDot = document.createElement("div");
+      cursorDot.className = "custom-cursor-dot";
+      cursorDot.setAttribute("aria-hidden", "true");
+      trailCanvas.className = "custom-cursor-trail";
+      trailCanvas.setAttribute("aria-hidden", "true");
+      document.body.append(trailCanvas, cursorDot);
+      document.body.classList.add("fancy-cursor-enabled");
+
+      const trail = [];
+      const trailLifetime = 520;
+      const maxTrailDots = 48;
+      let pointerX = 0;
+      let pointerY = 0;
+      let previousX = 0;
+      let previousY = 0;
+      let animationFrame = 0;
+      let hasPointer = false;
+      let pixelRatio = 1;
+
+      const resizeTrail = function () {
+        pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+        trailCanvas.width = Math.round(window.innerWidth * pixelRatio);
+        trailCanvas.height = Math.round(window.innerHeight * pixelRatio);
+        trailCanvas.style.width = window.innerWidth + "px";
+        trailCanvas.style.height = window.innerHeight + "px";
+        trailContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+      };
+
+      const drawTrail = function (now) {
+        trailContext.clearRect(0, 0, window.innerWidth, window.innerHeight);
+        for (let index = trail.length - 1; index >= 0; index -= 1) {
+          const dot = trail[index];
+          const progress = (now - dot.createdAt) / trailLifetime;
+          if (progress >= 1) {
+            trail.splice(index, 1);
+            continue;
+          }
+
+          const radius = 5 * (1 - progress);
+          trailContext.beginPath();
+          trailContext.arc(dot.x, dot.y, radius, 0, Math.PI * 2);
+          trailContext.fillStyle = "rgba(185, 31, 38, " + (1 - progress) + ")";
+          trailContext.fill();
+        }
+
+        if (trail.length) {
+          animationFrame = window.requestAnimationFrame(drawTrail);
+        } else {
+          animationFrame = 0;
+        }
+      };
+
+      window.addEventListener("resize", resizeTrail);
+      resizeTrail();
+
+      window.addEventListener("pointermove", function (event) {
+        if (event.pointerType !== "mouse") return;
+        pointerX = event.clientX;
+        pointerY = event.clientY;
+        cursorDot.style.left = pointerX + "px";
+        cursorDot.style.top = pointerY + "px";
+        cursorDot.classList.add("is-visible");
+
+        const distance = Math.hypot(pointerX - previousX, pointerY - previousY);
+        if (!hasPointer || distance >= 10) {
+          trail.push({ x: pointerX, y: pointerY, createdAt: performance.now() });
+          if (trail.length > maxTrailDots) trail.shift();
+          previousX = pointerX;
+          previousY = pointerY;
+          hasPointer = true;
+          if (!animationFrame) animationFrame = window.requestAnimationFrame(drawTrail);
+        }
+      });
+
+      window.addEventListener("pointerdown", function () {
+        cursorDot.classList.add("is-pressed");
+      });
+
+      window.addEventListener("pointerup", function () {
+        cursorDot.classList.remove("is-pressed");
+      });
+
+      document.documentElement.addEventListener("pointerleave", function () {
+        cursorDot.classList.remove("is-visible", "is-pressed");
+        hasPointer = false;
+      });
+    }
+  }
 
   const styledHeadings = document.querySelectorAll(
     ".section-heading h2, .trust-copy-wrap h2, .info-card h2, .detail-card h3, .quote-panel h3, .page-hero-copy h1, .cta-card h2"
