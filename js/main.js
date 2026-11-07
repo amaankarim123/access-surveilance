@@ -33,16 +33,37 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 
   const revealItems = document.querySelectorAll(
-    ".page-hero-copy, .info-card, .feature-card, .section-heading, .process-step, .stat-card, .service-card-page, .detail-card, .quote-panel, .contact-form-wrap, .cta-card, .hero-copy, .hero-panel, .service-card, .trust-point, .trust-panel-card"
+    ".site-header, .page-hero, .page-hero-copy, .info-card, .feature-card, .section-heading, .process-step, .stat-card, .service-card-page, .detail-card, .quote-panel, .contact-form-wrap, .cta-card, .hero-copy, .hero-panel, .service-card, .trust-copy-wrap, .trust-point, .trust-panel-card, .about-services-intro, .about-service-item, .about-approach-statement, .about-approach-copy, .about-why-item, .footer-grid"
   );
 
-  revealItems.forEach(function (item, index) {
-    item.classList.add("reveal");
-    item.style.transitionDelay = (index * 80) + "ms";
-    item.classList.add("is-visible");
-  });
+  const groupedRevealItems = new Set(
+    document.querySelectorAll(
+      ".feature-card, .process-step, .stat-card, .service-card-page, .detail-card, .service-card, .trust-point, .about-service-item, .about-why-item"
+    )
+  );
+  const revealMotionByGroup = ["reveal--tilt-left", "reveal--right", "reveal--tilt-right", "reveal--zoom", "reveal--left"];
+  const revealCounts = new Map();
+  const motionClassFor = function (item) {
+    if (item.matches(".section-heading")) return "reveal--fade";
+    if (item.matches(".page-hero")) return "reveal--wipe";
+    if (item.matches(".hero-panel, .trust-panel-card, .about-approach-statement, .quote-panel, .info-card")) return "reveal--zoom";
+    if (item.matches(".hero-copy, .page-hero-copy, .trust-copy-wrap, .about-services-intro")) return "reveal--left";
+    if (item.matches(".about-approach-copy, .contact-form-wrap, .cta-card, .footer-grid")) return "reveal--right";
+    if (groupedRevealItems.has(item)) {
+      const parent = item.parentElement;
+      const index = revealCounts.get(parent) || 0;
+      revealCounts.set(parent, index + 1);
+      return revealMotionByGroup[index % revealMotionByGroup.length];
+    }
+    return "reveal";
+  };
 
-  if ("IntersectionObserver" in window) {
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reducedMotion || !("IntersectionObserver" in window)) {
+    revealItems.forEach(function (item) {
+      item.classList.add("is-visible");
+    });
+  } else {
     const observer = new IntersectionObserver(function (entries) {
       entries.forEach(function (entry) {
         if (entry.isIntersecting) {
@@ -56,6 +77,14 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     revealItems.forEach(function (item) {
+      const parent = item.parentElement;
+      const index = revealCounts.get(parent) || 0;
+      if (!groupedRevealItems.has(item)) {
+        revealCounts.set(parent, index + 1);
+      }
+      item.style.setProperty("--reveal-delay", Math.min(index * 70, 280) + "ms");
+      item.classList.add("reveal");
+      item.classList.add(motionClassFor(item));
       observer.observe(item);
     });
   }
@@ -134,4 +163,5 @@ document.addEventListener("DOMContentLoaded", function () {
       isDown = false;
     });
   }
+
 });
