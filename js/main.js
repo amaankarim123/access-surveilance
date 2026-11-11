@@ -2,6 +2,100 @@ document.addEventListener("DOMContentLoaded", function () {
   const menuToggle = document.querySelector(".menu-toggle");
   const mainNav = document.querySelector(".main-nav");
   const serviceSlider = document.querySelector(".service-slider");
+  const cursorMedia = window.matchMedia("(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)");
+
+  if (cursorMedia.matches) {
+    const trailCanvas = document.createElement("canvas");
+    const trailContext = trailCanvas.getContext("2d");
+    if (trailContext) {
+      const cursorDot = document.createElement("div");
+      cursorDot.className = "custom-cursor-dot";
+      cursorDot.setAttribute("aria-hidden", "true");
+      trailCanvas.className = "custom-cursor-trail";
+      trailCanvas.setAttribute("aria-hidden", "true");
+      document.body.append(trailCanvas, cursorDot);
+      document.body.classList.add("fancy-cursor-enabled");
+
+      const trail = [];
+      const trailLifetime = 520;
+      const maxTrailDots = 48;
+      let pointerX = 0;
+      let pointerY = 0;
+      let previousX = 0;
+      let previousY = 0;
+      let animationFrame = 0;
+      let hasPointer = false;
+      let pixelRatio = 1;
+
+      const resizeTrail = function () {
+        pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+        trailCanvas.width = Math.round(window.innerWidth * pixelRatio);
+        trailCanvas.height = Math.round(window.innerHeight * pixelRatio);
+        trailCanvas.style.width = window.innerWidth + "px";
+        trailCanvas.style.height = window.innerHeight + "px";
+        trailContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+      };
+
+      const drawTrail = function (now) {
+        trailContext.clearRect(0, 0, window.innerWidth, window.innerHeight);
+        for (let index = trail.length - 1; index >= 0; index -= 1) {
+          const dot = trail[index];
+          const progress = (now - dot.createdAt) / trailLifetime;
+          if (progress >= 1) {
+            trail.splice(index, 1);
+            continue;
+          }
+
+          const radius = 5 * (1 - progress);
+          trailContext.beginPath();
+          trailContext.arc(dot.x, dot.y, radius, 0, Math.PI * 2);
+          trailContext.fillStyle = "rgba(185, 31, 38, " + (1 - progress) + ")";
+          trailContext.fill();
+        }
+
+        if (trail.length) {
+          animationFrame = window.requestAnimationFrame(drawTrail);
+        } else {
+          animationFrame = 0;
+        }
+      };
+
+      window.addEventListener("resize", resizeTrail);
+      resizeTrail();
+
+      window.addEventListener("pointermove", function (event) {
+        if (event.pointerType !== "mouse") return;
+        pointerX = event.clientX;
+        pointerY = event.clientY;
+        cursorDot.style.left = pointerX + "px";
+        cursorDot.style.top = pointerY + "px";
+        cursorDot.classList.add("is-visible");
+
+        const distance = Math.hypot(pointerX - previousX, pointerY - previousY);
+        if (!hasPointer || distance >= 10) {
+          trail.push({ x: pointerX, y: pointerY, createdAt: performance.now() });
+          if (trail.length > maxTrailDots) trail.shift();
+          previousX = pointerX;
+          previousY = pointerY;
+          hasPointer = true;
+          if (!animationFrame) animationFrame = window.requestAnimationFrame(drawTrail);
+        }
+      });
+
+      window.addEventListener("pointerdown", function () {
+        cursorDot.classList.add("is-pressed");
+      });
+
+      window.addEventListener("pointerup", function () {
+        cursorDot.classList.remove("is-pressed");
+      });
+
+      document.documentElement.addEventListener("pointerleave", function () {
+        cursorDot.classList.remove("is-visible", "is-pressed");
+        hasPointer = false;
+      });
+    }
+  }
 
   const styledHeadings = document.querySelectorAll(
     ".section-heading h2, .trust-copy-wrap h2, .info-card h2, .detail-card h3, .quote-panel h3, .page-hero-copy h1, .cta-card h2"
@@ -33,16 +127,37 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 
   const revealItems = document.querySelectorAll(
-    ".page-hero-copy, .info-card, .feature-card, .section-heading, .process-step, .stat-card, .service-card-page, .detail-card, .quote-panel, .contact-form-wrap, .cta-card, .hero-copy, .hero-panel, .service-card, .trust-point, .trust-panel-card"
+    ".site-header, .page-hero, .page-hero-copy, .info-card, .feature-card, .section-heading, .process-step, .stat-card, .service-card-page, .detail-card, .quote-panel, .contact-form-wrap, .cta-card, .hero-copy, .hero-panel, .service-card, .trust-copy-wrap, .trust-point, .trust-panel-card, .about-services-intro, .about-service-item, .about-approach-statement, .about-approach-copy, .about-why-item, .footer-grid"
   );
 
-  revealItems.forEach(function (item, index) {
-    item.classList.add("reveal");
-    item.style.transitionDelay = (index * 80) + "ms";
-    item.classList.add("is-visible");
-  });
+  const groupedRevealItems = new Set(
+    document.querySelectorAll(
+      ".feature-card, .process-step, .stat-card, .service-card-page, .detail-card, .service-card, .trust-point, .about-service-item, .about-why-item"
+    )
+  );
+  const revealMotionByGroup = ["reveal--tilt-left", "reveal--right", "reveal--tilt-right", "reveal--zoom", "reveal--left"];
+  const revealCounts = new Map();
+  const motionClassFor = function (item) {
+    if (item.matches(".section-heading")) return "reveal--fade";
+    if (item.matches(".page-hero")) return "reveal--wipe";
+    if (item.matches(".hero-panel, .trust-panel-card, .about-approach-statement, .quote-panel, .info-card")) return "reveal--zoom";
+    if (item.matches(".hero-copy, .page-hero-copy, .trust-copy-wrap, .about-services-intro")) return "reveal--left";
+    if (item.matches(".about-approach-copy, .contact-form-wrap, .cta-card, .footer-grid")) return "reveal--right";
+    if (groupedRevealItems.has(item)) {
+      const parent = item.parentElement;
+      const index = revealCounts.get(parent) || 0;
+      revealCounts.set(parent, index + 1);
+      return revealMotionByGroup[index % revealMotionByGroup.length];
+    }
+    return "reveal";
+  };
 
-  if ("IntersectionObserver" in window) {
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reducedMotion || !("IntersectionObserver" in window)) {
+    revealItems.forEach(function (item) {
+      item.classList.add("is-visible");
+    });
+  } else {
     const observer = new IntersectionObserver(function (entries) {
       entries.forEach(function (entry) {
         if (entry.isIntersecting) {
@@ -56,6 +171,14 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     revealItems.forEach(function (item) {
+      const parent = item.parentElement;
+      const index = revealCounts.get(parent) || 0;
+      if (!groupedRevealItems.has(item)) {
+        revealCounts.set(parent, index + 1);
+      }
+      item.style.setProperty("--reveal-delay", Math.min(index * 70, 280) + "ms");
+      item.classList.add("reveal");
+      item.classList.add(motionClassFor(item));
       observer.observe(item);
     });
   }
@@ -134,4 +257,5 @@ document.addEventListener("DOMContentLoaded", function () {
       isDown = false;
     });
   }
+
 });
